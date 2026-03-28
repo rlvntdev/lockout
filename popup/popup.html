@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+  <title>Lockout</title>
+</head>
+<body>
+  <div class="popup">
+    <h1>Lockout</h1>
+
+    <div id="unlocked-view">
+      <p class="subtitle">Block futures trading</p>
+      <div class="platforms">
+        <span class="platform">Breakout</span>
+        <span class="platform">Topstep</span>
+        <span class="platform">Robinhood</span>
+      </div>
+      <label for="lock-date">Lock until:</label>
+      <input type="datetime-local" id="lock-date">
+      <button id="lock-btn">Commit to Lockout</button>
+      <p class="warning">This cannot be undone. You will not be able to trade futures until the lock expires.</p>
+    </div>
+
+    <div id="locked-view" style="display: none;">
+      <p class="status-locked">LOCKED</p>
+      <p class="lock-until">Futures trading blocked until</p>
+      <p id="lock-date-display" class="lock-date-display"></p>
+      <div id="countdown" class="countdown"></div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
