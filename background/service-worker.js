@@ -1,9 +1,11 @@
 import { PLATFORMS, getPlatform, isFuturesRequest } from "../config/platforms.js";
 
-// Discovery mode — set to true to log all requests on target domains
+// Discovery mode — logs all requests on target domains to the console
 const DISCOVERY_MODE = true;
 
-const TRACKED_DOMAINS = Object.values(PLATFORMS).flatMap(p => p.domains);
+const TRACKED_URLS = Object.values(PLATFORMS)
+  .flatMap(p => p.domains)
+  .map(d => `*://*.${d}/*`);
 
 // Check if lockout is currently active
 async function isLocked() {
@@ -31,12 +33,14 @@ async function setLock(untilTimestamp) {
   return { success: true };
 }
 
-// Listen for requests on tracked domains
+// Observe requests for discovery mode logging and futures detection
+// MV3 webRequest is observe-only (no blocking), so we log here
+// and notify the content script to show the overlay when we detect futures requests.
+// Actual request cancellation uses declarativeNetRequest rules (added once patterns are known).
 chrome.webRequest.onBeforeRequest.addListener(
-  async (details) => {
+  (details) => {
     const { url, method, requestBody } = details;
 
-    // Discovery mode: log everything for pattern identification
     if (DISCOVERY_MODE) {
       console.log("[Lockout Discovery]", {
         url,
@@ -47,34 +51,28 @@ chrome.webRequest.onBeforeRequest.addListener(
       });
     }
 
-    // Check if lockout is active
-    const locked = await isLocked();
-    if (!locked) return;
+    // Check for futures requests and notify content script
+    (async () => {
+      const locked = await isLocked();
+      if (!locked) return;
 
-    // Check if this is a futures trading request
-    const bodyStr = requestBody?.raw
-      ? new TextDecoder().decode(requestBody.raw[0]?.bytes)
-      : JSON.stringify(requestBody?.formData || "");
+      const bodyStr = requestBody?.raw
+        ? new TextDecoder().decode(requestBody.raw[0]?.bytes)
+        : JSON.stringify(requestBody?.formData || "");
 
-    if (isFuturesRequest(url, method, bodyStr)) {
-      console.log("[Lockout] Blocked futures request:", url);
+      if (isFuturesRequest(url, method, bodyStr)) {
+        console.log("[Lockout] Detected futures request:", url);
 
-      // Notify content script to show overlay
-      const lockUntil = await getLockUntil();
-      chrome.tabs.sendMessage(details.tabId, {
-        type: "LOCKOUT_BLOCKED",
-        lockUntil
-      }).catch(() => {
-        // Content script may not be ready yet
-      });
-
-      return { cancel: true };
-    }
+        const lockUntil = await getLockUntil();
+        chrome.tabs.sendMessage(details.tabId, {
+          type: "LOCKOUT_BLOCKED",
+          lockUntil
+        }).catch(() => {});
+      }
+    })();
   },
-  {
-    urls: TRACKED_DOMAINS.map(d => `*://*.${d}/*`)
-  },
-  ["blocking", "requestBody"]
+  { urls: TRACKED_URLS },
+  ["requestBody"]
 );
 
 // Handle messages from popup and content scripts
