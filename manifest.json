@@ -10,7 +10,7 @@
     "tabs"
   ],
   "host_permissions": [
-    "*://*.breakout.trade/*",
+    "*://*.breakoutprop.com/*",
     "*://*.topstep.com/*",
     "*://*.robinhood.com/*"
   ],
@@ -21,7 +21,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.breakout.trade/*",
+        "*://*.breakoutprop.com/*",
         "*://*.topstep.com/*",
         "*://*.robinhood.com/*"
       ],

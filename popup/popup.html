@@ -17,8 +17,16 @@
         <span class="platform">Topstep</span>
         <span class="platform">Robinhood</span>
       </div>
-      <label for="lock-date">Lock until:</label>
-      <input type="datetime-local" id="lock-date">
+      <div class="lock-tabs">
+        <button class="tab active" data-tab="minutes">Minutes</button>
+        <button class="tab" data-tab="date">Date</button>
+      </div>
+      <div id="tab-minutes" class="tab-content">
+        <input type="number" id="lock-minutes" min="1" placeholder="Minutes">
+      </div>
+      <div id="tab-date" class="tab-content" style="display: none;">
+        <input type="datetime-local" id="lock-date">
+      </div>
       <button id="lock-btn">Commit to Lockout</button>
       <p class="warning">This cannot be undone. You will not be able to trade futures until the lock expires.</p>
     </div>

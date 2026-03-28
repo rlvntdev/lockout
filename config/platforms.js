@@ -3,7 +3,7 @@
 
 export const PLATFORMS = {
   breakout: {
-    domains: ["breakout.trade"],
+    domains: ["breakoutprop.com"],
     // Patterns that identify futures order requests
     // Each pattern: { urlMatch: RegExp, methods: string[], bodyMatch?: RegExp }
     futuresPatterns: []

@@ -32,13 +32,39 @@ h1 {
   color: #aaa;
 }
 
-label {
-  display: block;
-  font-size: 13px;
-  color: #888;
-  margin-bottom: 6px;
+.lock-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
+.tab {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #222;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #333;
+  color: #fff;
+  border-color: #555;
+}
+
+.tab:hover {
+  background: #ff2222;
+}
+
+.tab-content {
+  margin-bottom: 12px;
+}
+
+input[type="number"],
 input[type="datetime-local"] {
   width: 100%;
   padding: 10px;
@@ -47,11 +73,10 @@ input[type="datetime-local"] {
   background: #222;
   color: #fff;
   font-size: 14px;
-  margin-bottom: 16px;
   box-sizing: border-box;
 }
 
-button {
+#lock-btn {
   width: 100%;
   padding: 12px;
   border: none;
@@ -63,7 +88,7 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+#lock-btn:hover {
   background: #ff2222;
 }
 

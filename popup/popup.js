@@ -1,14 +1,29 @@
 const unlockedView = document.getElementById("unlocked-view");
 const lockedView = document.getElementById("locked-view");
 const lockDateInput = document.getElementById("lock-date");
+const lockMinutesInput = document.getElementById("lock-minutes");
 const lockBtn = document.getElementById("lock-btn");
 const lockDateDisplay = document.getElementById("lock-date-display");
 const countdownEl = document.getElementById("countdown");
+const tabs = document.querySelectorAll(".tab");
+
+let activeTab = "minutes";
 
 // Set minimum date to now
 const now = new Date();
 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
 lockDateInput.min = now.toISOString().slice(0, 16);
+
+// Tab switching
+tabs.forEach(tab => {
+  tab.addEventListener("click", () => {
+    activeTab = tab.dataset.tab;
+    tabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("tab-minutes").style.display = activeTab === "minutes" ? "block" : "none";
+    document.getElementById("tab-date").style.display = activeTab === "date" ? "block" : "none";
+  });
+});
 
 function formatDate(timestamp) {
   return new Date(timestamp).toLocaleDateString("en-US", {
@@ -63,11 +78,18 @@ chrome.runtime.sendMessage({ type: "GET_LOCK_STATUS" }, (response) => {
 
 // Commit to lockout
 lockBtn.addEventListener("click", () => {
-  const dateValue = lockDateInput.value;
-  if (!dateValue) return;
+  let untilTimestamp;
 
-  const untilTimestamp = new Date(dateValue).getTime();
-  if (untilTimestamp <= Date.now()) return;
+  if (activeTab === "minutes") {
+    const minutes = parseInt(lockMinutesInput.value, 10);
+    if (!minutes || minutes < 1) return;
+    untilTimestamp = Date.now() + minutes * 60 * 1000;
+  } else {
+    const dateValue = lockDateInput.value;
+    if (!dateValue) return;
+    untilTimestamp = new Date(dateValue).getTime();
+    if (untilTimestamp <= Date.now()) return;
+  }
 
   chrome.runtime.sendMessage(
     { type: "SET_LOCK", untilTimestamp },
