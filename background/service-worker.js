@@ -89,8 +89,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "SET_LOCK") {
     (async () => {
       const result = await setLock(message.untilTimestamp);
+      if (result.success) {
+        // Push lock state to all tracked tabs
+        broadcastLockState(true, message.untilTimestamp);
+      }
       sendResponse(result);
     })();
     return true;
   }
 });
+
+// Broadcast lock state to all content scripts on tracked domains
+async function broadcastLockState(locked, lockUntil) {
+  const tabs = await chrome.tabs.query({});
+  const trackedDomains = Object.values(PLATFORMS).flatMap(p => p.domains);
+  for (const tab of tabs) {
+    if (tab.url && trackedDomains.some(d => tab.url.includes(d))) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: "LOCKOUT_STATE_UPDATE",
+        locked,
+        lockUntil
+      }).catch(() => {});
+    }
+  }
+}

@@ -27,7 +27,17 @@
       ],
       "js": ["content/overlay.js"],
       "css": ["content/overlay.css"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content/interceptor.js"],
+      "matches": [
+        "*://*.breakoutprop.com/*",
+        "*://*.topstep.com/*",
+        "*://*.robinhood.com/*"
+      ]
     }
   ],
   "action": {

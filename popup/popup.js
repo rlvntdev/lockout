@@ -9,6 +9,16 @@ const tabs = document.querySelectorAll(".tab");
 
 let activeTab = "minutes";
 
+// Highlight current site
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  const url = tabs[0]?.url || "";
+  document.querySelectorAll(".platform").forEach(el => {
+    if (url.includes(el.dataset.domain)) {
+      el.classList.add("platform-active");
+    }
+  });
+});
+
 // Set minimum date to now
 const now = new Date();
 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());

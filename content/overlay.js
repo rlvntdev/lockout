@@ -1,4 +1,5 @@
 let overlayElement = null;
+let toastTimeout = null;
 
 function formatDate(timestamp) {
   return new Date(timestamp).toLocaleDateString("en-US", {
@@ -10,6 +11,8 @@ function formatDate(timestamp) {
     minute: "2-digit"
   });
 }
+
+// --- Fullscreen overlay (shown on blocked futures attempt) ---
 
 function showOverlay(lockUntil) {
   if (overlayElement) return;
@@ -23,10 +26,12 @@ function showOverlay(lockUntil) {
       <p>Futures trading is blocked until</p>
       <p class="lockout-date">${formatDate(lockUntil)}</p>
       <div class="lockout-countdown" id="lockout-countdown"></div>
+      <button id="lockout-dismiss" class="lockout-dismiss">I understand</button>
     </div>
   `;
 
   document.body.appendChild(overlayElement);
+  document.getElementById("lockout-dismiss").addEventListener("click", removeOverlay);
   startCountdown(lockUntil);
 }
 
@@ -60,9 +65,67 @@ function startCountdown(lockUntil) {
   update();
 }
 
-// Listen for block messages from background
+// --- Rejection toast ---
+
+function showRejectedToast() {
+  let toast = document.getElementById("lockout-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "lockout-toast";
+    toast.innerHTML = `<span class="lockout-toast-icon">&#x26d4;</span> ORDER REJECTED — Lockout active`;
+    document.body.appendChild(toast);
+  }
+
+  toast.classList.add("lockout-toast-visible");
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove("lockout-toast-visible");
+  }, 3000);
+}
+
+// --- Inject interceptor into page context ---
+
+function injectInterceptor() {
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("content/interceptor.js");
+  script.onload = () => script.remove();
+  (document.head || document.documentElement).appendChild(script);
+}
+
+// Send lock state to the page-level interceptor
+function sendLockState(locked, lockUntil) {
+  window.postMessage({
+    type: "LOCKOUT_STATE",
+    locked,
+    lockUntil
+  }, "*");
+}
+
+// Listen for blocked request notifications from interceptor
+window.addEventListener("message", (e) => {
+  if (e.source !== window) return;
+  if (e.data?.type === "LOCKOUT_REQUEST_BLOCKED") {
+    showRejectedToast();
+    showOverlay(e.data.lockUntil);
+  }
+});
+
+// Listen for messages from background
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "LOCKOUT_BLOCKED") {
     showOverlay(message.lockUntil);
+    showRejectedToast();
+  }
+  if (message.type === "LOCKOUT_STATE_UPDATE") {
+    sendLockState(message.locked, message.lockUntil);
+  }
+});
+
+// Initialize: inject interceptor and sync lock state
+injectInterceptor();
+
+chrome.runtime.sendMessage({ type: "GET_LOCK_STATUS" }, (response) => {
+  if (response) {
+    sendLockState(response.locked, response.lockUntil);
   }
 });
