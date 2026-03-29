@@ -109,6 +109,8 @@ function injectInterceptor() {
     }, "*");
   }
 
+  const rejBody = JSON.stringify({ status: "rejected", message: "Order rejected", error: "Order rejected by risk management" });
+
   const originalFetch = window.fetch;
   window.fetch = function (input, init) {
     const url = typeof input === "string" ? input : input?.url || "";
@@ -116,7 +118,11 @@ function injectInterceptor() {
     if (locked && ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
       console.log("[Lockout] REJECTED fetch:", method, url);
       notifyBlocked(url, method);
-      return Promise.reject(new TypeError("Lockout: futures trading blocked"));
+      return Promise.resolve(new Response(rejBody, {
+        status: 403,
+        statusText: "Forbidden",
+        headers: { "Content-Type": "application/json" }
+      }));
     }
     return originalFetch.apply(this, arguments);
   };
@@ -132,9 +138,17 @@ function injectInterceptor() {
     if (locked && ["POST", "PUT", "PATCH", "DELETE"].includes((this._lockoutMethod || "").toUpperCase())) {
       console.log("[Lockout] REJECTED XHR:", this._lockoutMethod, this._lockoutUrl);
       notifyBlocked(this._lockoutUrl, this._lockoutMethod);
+      Object.defineProperty(this, "status", { get: () => 403 });
+      Object.defineProperty(this, "statusText", { get: () => "Forbidden" });
+      Object.defineProperty(this, "responseText", { get: () => rejBody });
+      Object.defineProperty(this, "response", { get: () => rejBody });
+      Object.defineProperty(this, "readyState", { get: () => 4 });
       setTimeout(() => {
-        this.dispatchEvent(new Event("error"));
-        if (this.onerror) this.onerror(new Event("error"));
+        this.dispatchEvent(new Event("readystatechange"));
+        this.dispatchEvent(new Event("load"));
+        this.dispatchEvent(new Event("loadend"));
+        if (this.onreadystatechange) this.onreadystatechange();
+        if (this.onload) this.onload();
       }, 0);
       return;
     }
