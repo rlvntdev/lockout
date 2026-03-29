@@ -154,6 +154,36 @@ function injectInterceptor() {
     }
     return originalSend.apply(this, arguments);
   };
+
+  // Patch WebSocket
+  const OriginalWebSocket = window.WebSocket;
+  const originalWsSend = OriginalWebSocket.prototype.send;
+
+  OriginalWebSocket.prototype.send = function (data) {
+    const msg = typeof data === "string" ? data : "";
+
+    // Discovery: log all WS messages
+    console.log("[Lockout Discovery WS]", { url: this.url, data: msg.substring(0, 500) });
+
+    if (locked) {
+      // Check if this looks like an order message
+      const lower = msg.toLowerCase();
+      const isOrder = lower.includes("order") || lower.includes("place") || lower.includes("buy") || lower.includes("sell") || lower.includes("submit") || lower.includes("execute");
+      if (isOrder) {
+        console.log("[Lockout] REJECTED WebSocket order:", this.url, msg.substring(0, 200));
+        notifyBlocked(this.url, "WebSocket");
+        // Simulate a rejection response back to the app
+        setTimeout(() => {
+          const rejMsg = JSON.stringify({ status: "rejected", error: "Order rejected by risk management" });
+          const evt = new MessageEvent("message", { data: rejMsg });
+          this.dispatchEvent(evt);
+        }, 10);
+        return;
+      }
+    }
+
+    return originalWsSend.apply(this, arguments);
+  };
 })();`;
   (document.documentElement || document.head).prepend(script);
   script.remove();
