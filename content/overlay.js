@@ -87,9 +87,62 @@ function showRejectedToast() {
 
 function injectInterceptor() {
   const script = document.createElement("script");
-  script.src = chrome.runtime.getURL("content/interceptor.js");
-  script.onload = () => script.remove();
-  (document.head || document.documentElement).appendChild(script);
+  // Inline the interceptor so it runs synchronously BEFORE any page scripts
+  script.textContent = `(function () {
+  let locked = false;
+  let lockUntil = null;
+
+  window.addEventListener("message", (e) => {
+    if (e.source !== window) return;
+    if (e.data?.type === "LOCKOUT_STATE") {
+      locked = e.data.locked;
+      lockUntil = e.data.lockUntil;
+    }
+  });
+
+  function notifyBlocked(url, method) {
+    window.postMessage({
+      type: "LOCKOUT_REQUEST_BLOCKED",
+      url,
+      method,
+      lockUntil
+    }, "*");
+  }
+
+  const originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : input?.url || "";
+    const method = init?.method || "GET";
+    if (locked && ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
+      console.log("[Lockout] REJECTED fetch:", method, url);
+      notifyBlocked(url, method);
+      return Promise.reject(new TypeError("Lockout: futures trading blocked"));
+    }
+    return originalFetch.apply(this, arguments);
+  };
+
+  const originalOpen = XMLHttpRequest.prototype.open;
+  const originalSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    this._lockoutMethod = method;
+    this._lockoutUrl = url;
+    return originalOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function (body) {
+    if (locked && ["POST", "PUT", "PATCH", "DELETE"].includes((this._lockoutMethod || "").toUpperCase())) {
+      console.log("[Lockout] REJECTED XHR:", this._lockoutMethod, this._lockoutUrl);
+      notifyBlocked(this._lockoutUrl, this._lockoutMethod);
+      setTimeout(() => {
+        this.dispatchEvent(new Event("error"));
+        if (this.onerror) this.onerror(new Event("error"));
+      }, 0);
+      return;
+    }
+    return originalSend.apply(this, arguments);
+  };
+})();`;
+  (document.documentElement || document.head).prepend(script);
+  script.remove();
 }
 
 // Send lock state to the page-level interceptor
